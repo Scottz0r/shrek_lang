@@ -5,7 +5,9 @@
 #include <fstream>
 #include <sstream>
 #include <Windows.h>
+
 #include "shrek_interpreter.h"
+#include "shrek_runtime.h"
 
 int wmain(int argc, const wchar_t** argv)
 {
@@ -26,14 +28,15 @@ int wmain(int argc, const wchar_t** argv)
         ss << fp.rdbuf();
         fp.close();
 
-        shrek::interpret_code(ss.str());
+        auto code = shrek::interpret_code(ss.str());
+        shrek::execute(code);
 
 
         // shrek::execute();
     }
     catch (...)
     {
-
+        // TODO - Move this to interperter and runtime.
     }
 
     return 0;

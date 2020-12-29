@@ -1,12 +1,11 @@
 #ifndef _SHREK_INTERPRETER_H_INCLUDE_GUARD
 #define _SHREK_INTERPRETER_H_INCLUDE_GUARD
 
-#include <string>
-#include <fstream>
+#include "shrek_types.h"
 
 namespace shrek
 {
-    void interpret_code(const std::string& code);
+    std::vector<ByteCode> interpret_code(const std::string& code);
 }
 
 #endif // _SHREK_INTERPRETER_H_INCLUDE_GUARD

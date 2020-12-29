@@ -1,3 +1,5 @@
+// TODO: This should really be named "shrek_parser"
+
 #include "shrek_interpreter.h"
 
 #include <cassert>
@@ -5,52 +7,18 @@
 #include <unordered_map>
 #include <stack>
 #include <regex>
-#include <memory>
-#include <vector>
 
-// TODO: for quick printing.
-#include <iostream>
+#include "shrek_types.h"
 
 namespace shrek
 {
-    enum class OpCode
-    {
-        no_op = 0,
-        push0 = 1,
-        pop = 2,
-        add = 3,
-        subtract = 4,
-        jump0 = 5,
-        jump_neg = 6,
-        bump_plus = 7,
-        bump_neg = 8
-    };
-
-    enum class TokenType
-    {
-        Whitespace,
-        Command,
-        Label
-    };
-
-    struct Token
-    {
-        TokenType token_type = TokenType::Whitespace;
-        std::string value;
-        std::size_t index;
-    };
-
-    struct LangTree
-    {
-        OpCode op_code = OpCode::no_op;
-        Token token;
-        std::unique_ptr<LangTree> next;
-    };
-
     static std::size_t next_token(const std::string& code, std::size_t index, Token& result);
     static OpCode get_op_code(const std::string& value);
 
-    void interpret_code(const std::string& code)
+    static SyntaxTreeNode parse_command(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree);
+    static SyntaxTreeNode parse_label(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree);
+
+    std::vector<ByteCode> interpret_code(const std::string& code)
     {
         // Tokenize code.
         std::size_t index = 0;
@@ -60,71 +28,74 @@ namespace shrek
         {
             Token t;
             index = next_token(code, index, t);
-            if (t.token_type != TokenType::Whitespace)
-            {
-                tokens.push_back(std::move(t));
-            }
+            tokens.push_back(std::move(t));
         }
 
-        // Build tree
-        std::vector<LangTree> tree;
-        for (std::size_t i = 0; i < tokens.size(); ++i)
+        // Build syntax tree
+        SyntaxTree syntax_tree;
+        index = 0;
+        while (index < tokens.size())
         {
-            const auto& t = tokens[i];
+            SyntaxTreeNode node;
 
-            if(t.token_type == TokenType::Command)
+            switch (tokens[index].token_type)
             {
-                LangTree node;
-                node.token = t;
-                node.op_code = get_op_code(node.token.value);
-
-                if (node.op_code == OpCode::jump0 || node.op_code == OpCode::jump_neg)
-                {
-                    if (i + 1 < tokens.size() && tokens[i + 1].token_type == TokenType::Label)
-                    {
-                        ++i;
-                        node.next = std::make_unique<LangTree>();
-                        node.next->token = tokens[i];
-                    }
-                    else
-                    {
-                        // TODO: Syntax error - Require label call after command.
-                    }
-                }
-
-                tree.push_back(std::move(node));
-            }
-            else if(t.token_type == TokenType::Label)
-            {
-                LangTree node;
-                node.token = t;
-                if (i + 1 < tokens.size())
-                {
-                    ++i;
-                    node.next = std::make_unique<LangTree>();
-                    node.next->token = tokens[i];
-                }
-
-                tree.push_back(std::move(node));
+            case TokenType::command:
+                node = parse_command(tokens, index, syntax_tree);
+                syntax_tree.syntax.push_back(std::move(node));
+                break;
+            case TokenType::label:
+                node = parse_label(tokens, index, syntax_tree);
+                syntax_tree.syntax.push_back(std::move(node));
+                break;
+            default:
+                // Skip other items in tree
+                ++index;
+                break;
             }
         }
 
-        // Build Jump Map
-        std::unordered_map<std::string, std::size_t> jump_map;
-        for (std::size_t i = 0; i < tree.size(); ++i)
+        // Build Byte Code
+        std::vector<ByteCode> byte_code;
+        byte_code.reserve(syntax_tree.syntax.size());
+        for (const auto& node : syntax_tree.syntax)
         {
-            const auto& node = tree[i];
+            bool code_added = false;
 
-            if (node.op_code == OpCode::no_op && node.token.token_type == TokenType::Label)
+            const auto* cnode = &node;
+            while (cnode)
             {
-                if (jump_map.count(node.token.value))
+                if (cnode->op_code != OpCode::no_op)
                 {
-                    // TODO: Error - label redefinition.
+                    ByteCode code;
+                    code.op_code = cnode->op_code;
+                    code.originator_token_index = cnode->token.index;
+
+                    if (cnode->op_code == OpCode::jump0 || cnode->op_code == OpCode::jump_neg)
+                    {
+                        assert(cnode->next);
+                        code.a = (int)syntax_tree.jump_map.at(cnode->next->token.value);
+                    }
+
+                    byte_code.push_back(code);
+                    code_added = true;
                 }
 
-                jump_map.insert(std::make_pair(node.token.value, i));
+                cnode = cnode->next.get();
+            }
+
+            // TODO: Should be needed - There should always be an operation added with valid syntax. This must be done
+            // so jump map is not messed up.
+            if (!code_added)
+            {
+                ByteCode code;
+                code.op_code = OpCode::no_op;
+                code.originator_token_index = node.token.index;
+                byte_code.push_back(code);
             }
         }
+
+        return byte_code;
     }
 
     static std::size_t next_token(const std::string& code, std::size_t index, Token& result)
@@ -136,19 +107,19 @@ namespace shrek
         std::smatch m;
         if (std::regex_search(code.begin() + index, code.end(), m, label_regex))
         {
-            result.token_type = TokenType::Label;
+            result.token_type = TokenType::label;
         }
         else if (std::regex_search(code.begin() + index, code.end(), m, cmd_regex))
         {
-            result.token_type = TokenType::Command;
+            result.token_type = TokenType::command;
         }
         else if (std::regex_search(code.begin() + index, code.end(), m, whitespace_regex))
         {
-            result.token_type = TokenType::Whitespace;
+            result.token_type = TokenType::whitespace;
         }
         else
         {
-            // TODO: Syntax error - Invalid token.
+            throw SyntaxError("Invalid token."); // TODO: More detailed error.
         }
 
         result.value = m.str();
@@ -180,179 +151,69 @@ namespace shrek
             case 'R':
                 return OpCode::bump_neg;
             case 'E':
-                break;
+                return OpCode::input;
             case 'K':
-                break;
+                return OpCode::output;
             }
         }
 
-        // TODO: syntax error - invalid operation.
-        return OpCode::no_op;
+        // TODO: More detailed error
+        throw SyntaxError("Invalid command.");
     }
 
-    //static constexpr auto ERR_STACK_EMPTY = "Stack empty";
-    //static constexpr auto ERR_STACK_SIZE = "Stack does not contain enough elements for the operation";
+    static SyntaxTreeNode parse_command(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree)
+    {
+        assert(index < tokens.size());
 
-    //static char* _program_code;
-    //static std::size_t _program_size;
-    //static std::size_t _program_counter;
-    //static std::unordered_map<std::string, std::size_t> _label_map;
-    //static std::stack<int> _stack;
+        const auto& token = tokens[index];
+        ++index;
 
-    //static void _map_labels();
-    //static void _raise_error(const std::string& what);
-    //static void _step_program();
+        SyntaxTreeNode node;
+        node.token = token;
+        node.op_code = get_op_code(node.token.value);
 
-    //static void _push0();
-    //static void _pop();
-    //static void _add();
-    //static void _subtract();
-    //static void _jump0();
-    //static void _jump_neg();
-    //static void _bump_plus();
-    //static void _bump_neg();
+        if (node.op_code == OpCode::jump0 || node.op_code == OpCode::jump_neg)
+        {
+            if (index < tokens.size() && tokens[index].token_type == TokenType::label)
+            {
+                node.next = std::make_unique<SyntaxTreeNode>();
+                node.next->op_code = OpCode::no_op;
+                node.next->token = tokens[index];
 
-    //void load_program(std::ifstream& fp)
-    //{
-    //    if (!fp.is_open())
-    //    {
-    //        throw std::exception("Cannot open program file");
-    //    }
+                ++index;
+            }
+            else
+            {
+                // TODO: More detailed error
+                throw SyntaxError("Missing label after jump command");
+            }
+        }
 
-    //    fp.seekg(0, std::ios::end);
-    //    auto file_size = fp.tellg();
+        return node;
+    }
 
-    //    if (file_size > std::numeric_limits<std::size_t>::max())
-    //    {
-    //        throw std::exception("Program too large");
-    //    }
+    static SyntaxTreeNode parse_label(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree)
+    {
+        assert(index < tokens.size());
 
-    //    _program_size = file_size;
-    //    fp.seekg(0, std::ios::beg);
-    //    fp.read(_program_code, _program_size);
-    //}
+        SyntaxTreeNode node;
+        node.token = tokens[index];
+        node.op_code = OpCode::no_op;
 
-    //void execute()
-    //{
-    //    _program_counter = 0;
+        ++index;
 
-    //    while (_program_counter < _program_size)
-    //    {
-    //        char c = _program_code[_program_counter];
+        if (tree.jump_map.count(node.token.value) > 0)
+        {
+            // TODO: More detailed error.
+            throw SyntaxError("Label redefinition.");
+        }
 
-    //        switch (c)
-    //        {
-    //        case 's':
-    //            break;
-    //        case 'h':
-    //            break;
-    //        case 'r':
-    //            break;
-    //        case 'e':
-    //            break;
-    //        case 'k':
-    //            break;
-    //        case 'S':
-    //            break;
-    //        case 'H':
-    //            break;
-    //        case 'R':
-    //            break;
-    //        case 'K':
-    //            break;
-    //        case '!':
-    //            break;
-    //        }
-    //    }
-    //}
+        node.next = std::make_unique<SyntaxTreeNode>();
+        *node.next = parse_command(tokens, index, tree);
 
-    //static void _map_labels()
-    //{
-    //    // TODO:
-    //}
+        // Point to the record that is about to be added to the syntax tree.
+        tree.jump_map.insert(std::make_pair(node.token.value, tree.syntax.size()));
 
-    //static void _raise_error(const std::string& what)
-    //{
-
-    //}
-
-    //static void _step_program()
-    //{
-    //    ++_program_counter;
-    //}
-
-    //static void _push0()
-    //{
-    //    _stack.push(0);
-    //    _step_program();
-    //}
-
-    //static void _pop()
-    //{
-    //    if (_stack.empty())
-    //    {
-    //        _raise_error(ERR_STACK_EMPTY);
-    //    }
-
-    //    auto value = _stack.top();
-    //    _stack.pop();
-
-    //    std::cout << value; // TODO
-
-    //    _step_program();
-    //}
-
-    //static void _add()
-    //{
-    //    if (_stack.size() < 2)
-    //    {
-    //        _raise_error(ERR_STACK_SIZE);
-    //    }
-
-    //    auto v0 = _stack.top();
-    //    _stack.pop();
-
-    //    auto v1 = _stack.top();
-    //    _stack.pop();
-
-    //    _stack.push(v0 + v1);
-    //    _step_program();
-    //}
-
-    //static void _subtract()
-    //{
-    //    if (_stack.size() < 2)
-    //    {
-    //        _raise_error(ERR_STACK_SIZE);
-    //    }
-
-    //    auto v0 = _stack.top();
-    //    _stack.pop();
-
-    //    auto v1 = _stack.top();
-    //    _stack.pop();
-
-    //    _stack.push(v1 - v0);
-    //    _step_program();
-    //}
-
-    //static void _jump0()
-    //{
-
-    //}
-
-    //static void _jump_neg()
-    //{
-
-    //}
-
-    //static void _bump_plus()
-    //{
-
-    //}
-
-    //static void _bump_neg()
-    //{
-
-    //}
+        return node;
+    }
 }
