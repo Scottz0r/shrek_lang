@@ -24,6 +24,9 @@
     <ClCompile Include="shrek_runtime.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="format.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="shrek_interpreter.h">
@@ -33,6 +36,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="shrek_types.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="shrek_platform_specific.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

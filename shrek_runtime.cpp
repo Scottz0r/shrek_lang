@@ -1,20 +1,27 @@
 #include "shrek_runtime.h"
 
 #include <stack>
+#include "fmt/core.h"
 
-// TODO - for output, probably need better.
-#include <iostream>
+#define MAKE_RUNTIME_ERROR(what) (RuntimeError(what, program_counter, curr_code->op_code))
 
 namespace shrek
 {
+    constexpr auto npos = std::numeric_limits<std::size_t>::max();
+    constexpr auto jump_table_default_size = 8;
+
     static std::size_t program_counter = 0;
     static std::stack<int> stack;
+    static std::vector<std::size_t> jump_table;
 
     const std::vector<ByteCode>* program;
+    const ByteCode* curr_code;
 
+    static void build_jump_table();
     static void main_loop();
     static void step_program();
     static void exit_program();
+    static std::size_t get_jump_location(int label_num);
 
     static void push0();
     static void pop();
@@ -32,15 +39,38 @@ namespace shrek
         try
         {
             program = &code;
+            build_jump_table();
             main_loop();
         }
         catch (const RuntimeError& ex)
         {
-
+            fmt::print("Runtime error: {}", ex.what());
+            exit(1);
         }
         catch (...)
         {
+            fmt::print("Runtime encountered an unexpected exception");
+            exit(1);
+        }
+    }
 
+    static void build_jump_table()
+    {
+        jump_table.clear();
+        jump_table.resize(jump_table_default_size, npos);
+
+        for (std::size_t i = 0; i < program->size(); ++i)
+        {
+            const auto& code = (*program)[i];
+            if (code.op_code == OpCode::label)
+            {
+                if (code.a + 1 > jump_table.size())
+                {
+                    jump_table.resize(code.a + 1, npos);
+                }
+
+                jump_table[code.a] = i + 1; // Jump past label to reduce by one operation.
+            }
         }
     }
 
@@ -50,13 +80,13 @@ namespace shrek
         {
             if (program_counter >= program->size())
             {
-                // TODO: More detailed error.
-                throw RuntimeError("Program read invalid index");
+                exit_program();
             }
 
-            const auto& code = (*program)[program_counter];
-            switch (code.op_code)
+            curr_code = program->data() + program_counter; //&(*program)[program_counter];
+            switch (curr_code->op_code)
             {
+            case OpCode::label:
             case OpCode::no_op:
                 step_program();
                 break;
@@ -91,7 +121,8 @@ namespace shrek
                 output();
                 break;
             default:
-                throw RuntimeError("Unknown operation");
+                // TODO: Different error type? This seems like an error in development of the runtime.
+                throw RuntimeError("Unknown operation", program_counter, OpCode::no_op);
             }
         }
     }
@@ -116,6 +147,16 @@ namespace shrek
         exit(exit_code);
     }
 
+    static std::size_t get_jump_location(int label_num)
+    {
+        if (label_num < jump_table.size())
+        {
+            return jump_table[label_num];
+        }
+
+        return npos;
+    }
+
     static void push0()
     {
         stack.push(0);
@@ -126,7 +167,7 @@ namespace shrek
     {
         if (stack.empty())
         {
-            throw RuntimeError("Stack is empty");
+            throw MAKE_RUNTIME_ERROR("Stack is empty");
         }
 
         stack.pop();
@@ -138,7 +179,7 @@ namespace shrek
     {
         if (stack.size() < 2)
         {
-            throw RuntimeError("Not enough stack for add");
+            throw MAKE_RUNTIME_ERROR("Not enough stack for add");
         }
 
         auto a = stack.top();
@@ -155,7 +196,7 @@ namespace shrek
     {
         if (stack.size() < 2)
         {
-            throw RuntimeError("Not enough stack for subtract");
+            throw MAKE_RUNTIME_ERROR("Not enough stack for subtract");
         }
 
         auto a = stack.top();
@@ -172,7 +213,7 @@ namespace shrek
     {
         if (stack.empty())
         {
-            throw RuntimeError("Stack is empty");
+            throw MAKE_RUNTIME_ERROR("Stack is empty");
         }
 
         auto val = stack.top();
@@ -180,7 +221,7 @@ namespace shrek
         if (val == 0)
         {
             const auto& code = (*program)[program_counter];
-            program_counter = static_cast<std::size_t>(code.a);
+            program_counter = get_jump_location(code.a);
         }
         else
         {
@@ -192,7 +233,7 @@ namespace shrek
     {
         if (stack.empty())
         {
-            throw RuntimeError("Stack is empty");
+            throw MAKE_RUNTIME_ERROR("Stack is empty");
         }
 
         auto val = stack.top();
@@ -200,7 +241,7 @@ namespace shrek
         if (val < 0)
         {
             const auto& code = (*program)[program_counter];
-            program_counter = static_cast<std::size_t>(code.a);
+            program_counter = get_jump_location(code.a);
         }
         else
         {
@@ -212,7 +253,7 @@ namespace shrek
     {
         if (stack.empty())
         {
-            throw RuntimeError("Stack is empty");
+            throw MAKE_RUNTIME_ERROR("Stack is empty");
         }
 
         auto val = stack.top();
@@ -228,7 +269,7 @@ namespace shrek
     {
         if (stack.empty())
         {
-            throw RuntimeError("Stack is empty");
+            throw MAKE_RUNTIME_ERROR("Stack is empty");
         }
 
         auto val = stack.top();
@@ -243,7 +284,8 @@ namespace shrek
     static void input()
     {
         std::string input;
-        std::cin >> input;
+        //std::cin >> input;
+
 
         // TODO: Better parsing?
         auto val = std::stoi(input);
@@ -256,14 +298,15 @@ namespace shrek
     {
         if (stack.empty())
         {
-            throw RuntimeError("Stack is empty");
+            // TODO: Macro to help make this?
+            throw MAKE_RUNTIME_ERROR("Stack is empty");
         }
 
         auto val = stack.top();
         stack.pop();
 
-        std::cout << val;
-        std::cout.flush();
+        fmt::print("{:#x}\n", val);
+        fflush(stdout);
 
         step_program();
     }

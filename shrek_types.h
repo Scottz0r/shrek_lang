@@ -12,6 +12,7 @@ namespace shrek
     enum class OpCode
     {
         no_op,
+        label,
         push0,
         pop,
         add,
@@ -42,36 +43,60 @@ namespace shrek
     {
         OpCode op_code = OpCode::no_op;
         Token token;
-        std::unique_ptr<SyntaxTreeNode> next;
+        std::vector<std::unique_ptr<SyntaxTreeNode>> children;
     };
 
     struct SyntaxTree
     {
         std::vector<SyntaxTreeNode> syntax;
-        std::unordered_map<std::string, std::size_t> jump_map;
     };
 
     struct ByteCode
     {
         OpCode op_code = OpCode::no_op;
         int a = 0;
-        std::size_t originator_token_index = 0;
     };
 
-    // TODO: Better errors.
-    struct SyntaxError : public std::exception
+    class SyntaxError
     {
-        SyntaxError(const char* what)
-            : std::exception(what)
+    public:
+        SyntaxError(const std::string& what, std::size_t index, const std::string& token)
+            : m_what(what)
+            , m_index(index)
+            , m_token(token)
         {}
+
+        const std::string& what() const { return m_what; }
+
+        std::size_t index() const { return m_index; }
+
+        const std::string& token() const { return m_token; }
+
+    private:
+        std::string m_what;
+        std::size_t m_index;
+        std::string m_token;
     };
 
-    // TODO: Better errors.
-    struct RuntimeError : public std::exception
+    class RuntimeError
     {
-        RuntimeError(const char* what)
-            : std::exception(what)
+    public:
+        RuntimeError(const std::string& what, std::size_t program_counter, OpCode op_code)
+            : m_what(what)
+            , m_program_counter(program_counter)
+            , m_op_code( op_code )
         {}
+
+        const std::string& what() const { return m_what; }
+
+        std::size_t program_counter() const { return m_program_counter; }
+
+        OpCode op_code() const { return m_op_code; }
+
+    private:
+        std::string m_what;
+        std::size_t m_program_counter;
+        OpCode m_op_code;
     };
 }
 

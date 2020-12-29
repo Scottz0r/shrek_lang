@@ -4,21 +4,58 @@
 
 #include <cassert>
 #include <limits.h>
-#include <unordered_map>
+#include <optional>
 #include <stack>
 #include <regex>
+#include <unordered_map>
+#include "fmt/format.h"
 
 #include "shrek_types.h"
+#include "shrek_platform_specific.h"
 
 namespace shrek
 {
+    static int get_or_add(std::unordered_map<std::string, int>& map, const std::string& search, int add_value);
+
     static std::size_t next_token(const std::string& code, std::size_t index, Token& result);
-    static OpCode get_op_code(const std::string& value);
+    static std::optional<OpCode> get_op_code(const std::string& value);
+    static void parse_command(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree);
+    static void parse_label(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree);
+    std::vector<ByteCode> interpret_code_impl(const std::string& code);
 
-    static SyntaxTreeNode parse_command(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree);
-    static SyntaxTreeNode parse_label(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree);
+    std::vector<ByteCode> interpret_code(const std::vector<std::string>& args)
+    {
+        // TODO: Parse arguments.
+        if (args.size() < 2)
+        {
+            fmt::print("Invalid arguments");
+            exit(1);
+        }
 
-    std::vector<ByteCode> interpret_code(const std::string& code)
+        std::string code;
+        if (!read_all_text(args.at(1), code))
+        {
+            fmt::print("Failed to read source file");
+            exit(1);
+        }
+
+        try
+        {
+            return interpret_code_impl(code);
+        }
+        catch (const SyntaxError& ex)
+        {
+            fmt::print("Syntax Error: {} at index {}, token \"{}\"", ex.what(), ex.index(), ex.token());
+            exit(1);
+        }
+        catch (...)
+        {
+            fmt::print("Interpreter encountered an unexpected exception.");
+            exit(1);
+        }
+    }
+
+    std::vector<ByteCode> interpret_code_impl(const std::string& code)
     {
         // Tokenize code.
         std::size_t index = 0;
@@ -41,12 +78,10 @@ namespace shrek
             switch (tokens[index].token_type)
             {
             case TokenType::command:
-                node = parse_command(tokens, index, syntax_tree);
-                syntax_tree.syntax.push_back(std::move(node));
+                parse_command(tokens, index, syntax_tree);
                 break;
             case TokenType::label:
-                node = parse_label(tokens, index, syntax_tree);
-                syntax_tree.syntax.push_back(std::move(node));
+                parse_label(tokens, index, syntax_tree);
                 break;
             default:
                 // Skip other items in tree
@@ -58,41 +93,34 @@ namespace shrek
         // Build Byte Code
         std::vector<ByteCode> byte_code;
         byte_code.reserve(syntax_tree.syntax.size());
+
+        std::unordered_map<std::string, int> label_map;
+
         for (const auto& node : syntax_tree.syntax)
         {
-            bool code_added = false;
+            ByteCode code;
+            code.op_code = node.op_code;
 
-            const auto* cnode = &node;
-            while (cnode)
+            if (node.op_code == OpCode::label)
             {
-                if (cnode->op_code != OpCode::no_op)
+                // Get the label number if already found, otherwise add.
+                code.a = get_or_add(label_map, node.token.value, (int)label_map.size());
+            }
+            else if (node.op_code == OpCode::jump0 || node.op_code == OpCode::jump_neg)
+            {
+                if (node.children.empty() || node.children[0]->op_code != OpCode::label)
                 {
-                    ByteCode code;
-                    code.op_code = cnode->op_code;
-                    code.originator_token_index = cnode->token.index;
-
-                    if (cnode->op_code == OpCode::jump0 || cnode->op_code == OpCode::jump_neg)
-                    {
-                        assert(cnode->next);
-                        code.a = (int)syntax_tree.jump_map.at(cnode->next->token.value);
-                    }
-
-                    byte_code.push_back(code);
-                    code_added = true;
+                    throw SyntaxError("Jump must be followed by label", node.token.index, node.token.value);
                 }
 
-                cnode = cnode->next.get();
+                // Get the label number if already found, otherwise add. The label number is not the actual position,
+                // so it can be assigned a number before the label op_code is found.
+                code.a = get_or_add(label_map, node.children[0]->token.value, (int)label_map.size());
             }
 
-            // TODO: Should be needed - There should always be an operation added with valid syntax. This must be done
-            // so jump map is not messed up.
-            if (!code_added)
-            {
-                ByteCode code;
-                code.op_code = OpCode::no_op;
-                code.originator_token_index = node.token.index;
-                byte_code.push_back(code);
-            }
+            // TODO: Debugging symbols?
+
+            byte_code.push_back(code);
         }
 
         return byte_code;
@@ -119,7 +147,7 @@ namespace shrek
         }
         else
         {
-            throw SyntaxError("Invalid token."); // TODO: More detailed error.
+            throw SyntaxError("Invalid token", index, "");
         }
 
         result.value = m.str();
@@ -128,7 +156,7 @@ namespace shrek
         return index + result.value.size();
     }
 
-    static OpCode get_op_code(const std::string& value)
+    static std::optional<OpCode> get_op_code(const std::string& value)
     {
         if (value.size() > 0)
         {
@@ -157,11 +185,10 @@ namespace shrek
             }
         }
 
-        // TODO: More detailed error
-        throw SyntaxError("Invalid command.");
+        return std::nullopt;
     }
 
-    static SyntaxTreeNode parse_command(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree)
+    static void parse_command(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree)
     {
         assert(index < tokens.size());
 
@@ -170,50 +197,56 @@ namespace shrek
 
         SyntaxTreeNode node;
         node.token = token;
-        node.op_code = get_op_code(node.token.value);
+
+        auto op_code_translated = get_op_code(node.token.value);
+        if (!op_code_translated)
+        {
+            throw SyntaxError("Invalid command", node.token.index, node.token.value);
+        }
+
+        node.op_code = *op_code_translated;
 
         if (node.op_code == OpCode::jump0 || node.op_code == OpCode::jump_neg)
         {
             if (index < tokens.size() && tokens[index].token_type == TokenType::label)
             {
-                node.next = std::make_unique<SyntaxTreeNode>();
-                node.next->op_code = OpCode::no_op;
-                node.next->token = tokens[index];
-
+                SyntaxTreeNode child_label;
+                child_label.token = tokens[index];
+                child_label.op_code = OpCode::label;
                 ++index;
+
+                node.children.push_back(std::make_unique<SyntaxTreeNode>(std::move(child_label)));
             }
             else
             {
-                // TODO: More detailed error
-                throw SyntaxError("Missing label after jump command");
+                throw SyntaxError("Missing label after jump command", node.token.index, node.token.value);
             }
         }
 
-        return node;
+        tree.syntax.push_back(std::move(node));
     }
 
-    static SyntaxTreeNode parse_label(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree)
+    static void parse_label(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree)
     {
         assert(index < tokens.size());
 
         SyntaxTreeNode node;
         node.token = tokens[index];
-        node.op_code = OpCode::no_op;
-
+        node.op_code = OpCode::label;
         ++index;
 
-        if (tree.jump_map.count(node.token.value) > 0)
+        tree.syntax.push_back(std::move(node));
+    }
+
+    static int get_or_add(std::unordered_map<std::string, int>& map, const std::string& search, int add_value)
+    {
+        auto it = map.find(search);
+        if (it != map.end())
         {
-            // TODO: More detailed error.
-            throw SyntaxError("Label redefinition.");
+            return it->second;
         }
 
-        node.next = std::make_unique<SyntaxTreeNode>();
-        *node.next = parse_command(tokens, index, tree);
-
-        // Point to the record that is about to be added to the syntax tree.
-        tree.jump_map.insert(std::make_pair(node.token.value, tree.syntax.size()));
-
-        return node;
+        map.insert(std::make_pair(search, add_value));
+        return add_value;
     }
 }
