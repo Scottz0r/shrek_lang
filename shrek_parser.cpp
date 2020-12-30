@@ -1,6 +1,6 @@
 // TODO: This should really be named "shrek_parser"
 
-#include "shrek_interpreter.h"
+#include "shrek_parser.h"
 
 #include <cassert>
 #include <limits.h>
@@ -15,12 +15,21 @@
 
 namespace shrek
 {
-    static int get_or_add(std::unordered_map<std::string, int>& map, const std::string& search, int add_value);
+    struct ShrekCommands
+    {
+        static constexpr auto push0 = "S";
+        static constexpr auto pop = "H";
+        static constexpr auto bump = "R";
+        static constexpr auto func = "E";
+        static constexpr auto jump = "K";
+    };
 
+    static int get_or_add(std::unordered_map<std::string, int>& map, const std::string& search, int add_value);
     static std::size_t next_token(const std::string& code, std::size_t index, Token& result);
     static std::optional<OpCode> get_op_code(const std::string& value);
     static void parse_command(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree);
     static void parse_label(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree);
+    static void parse_comment(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree);
     std::vector<ByteCode> interpret_code_impl(const std::string& code);
 
     std::vector<ByteCode> interpret_code(const std::vector<std::string>& args)
@@ -83,6 +92,9 @@ namespace shrek
             case TokenType::label:
                 parse_label(tokens, index, syntax_tree);
                 break;
+            case TokenType::comment:
+                parse_comment(tokens, index, syntax_tree);
+                break;
             default:
                 // Skip other items in tree
                 ++index;
@@ -99,28 +111,39 @@ namespace shrek
         for (const auto& node : syntax_tree.syntax)
         {
             ByteCode code;
-            code.op_code = node.op_code;
 
-            if (node.op_code == OpCode::label)
+            if (node.token.token_type == TokenType::label)
             {
                 // Get the label number if already found, otherwise add.
+                code.op_code = OpCode::label;
                 code.a = get_or_add(label_map, node.token.value, (int)label_map.size());
+
+                byte_code.push_back(code);
             }
-            else if (node.op_code == OpCode::jump0 || node.op_code == OpCode::jump_neg)
+            else if (node.token.token_type == TokenType::command)
             {
-                if (node.children.empty() || node.children[0]->op_code != OpCode::label)
+                auto maybe_op_code = get_op_code(node.token.value);
+                if (!maybe_op_code)
                 {
-                    throw SyntaxError("Jump must be followed by label", node.token.index, node.token.value);
+                    throw SyntaxError("Invalid command", node.token.index, node.token.value);
                 }
 
-                // Get the label number if already found, otherwise add. The label number is not the actual position,
-                // so it can be assigned a number before the label op_code is found.
-                code.a = get_or_add(label_map, node.children[0]->token.value, (int)label_map.size());
+                code.op_code = *maybe_op_code;
+
+                if (maybe_op_code == OpCode::jump)
+                {
+                    if (node.children.empty() || node.children[0].token.token_type != TokenType::label)
+                    {
+                        throw SyntaxError("Jump must be followed by label", node.token.index, node.token.value);
+                    }
+
+                    // Get the label number if already found, otherwise add. The label number is not the actual position,
+                    // so it can be assigned a number before the label op_code is found.
+                    code.a = get_or_add(label_map, node.children[0].token.value, (int)label_map.size());
+                }
+
+                byte_code.push_back(code);
             }
-
-            // TODO: Debugging symbols?
-
-            byte_code.push_back(code);
         }
 
         return byte_code;
@@ -128,26 +151,31 @@ namespace shrek
 
     static std::size_t next_token(const std::string& code, std::size_t index, Token& result)
     {
-        static std::regex label_regex(R"_(^![shrekSHREK]+!)_");
-        static std::regex cmd_regex(R"_(^[shrekSHREK])_");
-        static std::regex whitespace_regex(R"_(\s*)_");
+        static std::regex label_regex(R"_(![SHREK]+!)_");
+        static std::regex cmd_regex(R"_([SHREK])_");
+        static std::regex whitespace_regex(R"_(\s+)_");
+        static std::regex comment_regex(R"_(#[^\n]*\n?)_");
 
         std::smatch m;
-        if (std::regex_search(code.begin() + index, code.end(), m, label_regex))
+        if (std::regex_search(code.begin() + index, code.end(), m, label_regex, std::regex_constants::match_continuous))
         {
             result.token_type = TokenType::label;
         }
-        else if (std::regex_search(code.begin() + index, code.end(), m, cmd_regex))
+        else if (std::regex_search(code.begin() + index, code.end(), m, cmd_regex, std::regex_constants::match_continuous))
         {
             result.token_type = TokenType::command;
         }
-        else if (std::regex_search(code.begin() + index, code.end(), m, whitespace_regex))
+        else if (std::regex_search(code.begin() + index, code.end(), m, whitespace_regex, std::regex_constants::match_continuous))
         {
             result.token_type = TokenType::whitespace;
         }
+        else if (std::regex_search(code.begin() + index, code.end(), m, comment_regex, std::regex_constants::match_continuous))
+        {
+            result.token_type = TokenType::comment;
+        }
         else
         {
-            throw SyntaxError("Invalid token", index, "");
+            throw SyntaxError("Invalid token", index, code.substr(index, 1));
         }
 
         result.value = m.str();
@@ -162,26 +190,16 @@ namespace shrek
         {
             switch (value[0])
             {
-            case 's':
-                return OpCode::push0;
-            case 'h':
-                return OpCode::pop;
-            case 'r':
-                return OpCode::add;
-            case 'e':
-                return OpCode::subtract;
-            case 'k':
-                return OpCode::jump0;
             case 'S':
-                return OpCode::jump_neg;
+                return OpCode::push0;
             case 'H':
-                return OpCode::bump_plus;
+                return OpCode::pop;
             case 'R':
-                return OpCode::bump_neg;
+                return OpCode::bump;
             case 'E':
-                return OpCode::input;
+                return OpCode::func;
             case 'K':
-                return OpCode::output;
+                return OpCode::jump;
             }
         }
 
@@ -204,18 +222,16 @@ namespace shrek
             throw SyntaxError("Invalid command", node.token.index, node.token.value);
         }
 
-        node.op_code = *op_code_translated;
-
-        if (node.op_code == OpCode::jump0 || node.op_code == OpCode::jump_neg)
+        if (token.value == ShrekCommands::jump)
         {
             if (index < tokens.size() && tokens[index].token_type == TokenType::label)
             {
                 SyntaxTreeNode child_label;
                 child_label.token = tokens[index];
-                child_label.op_code = OpCode::label;
                 ++index;
 
-                node.children.push_back(std::make_unique<SyntaxTreeNode>(std::move(child_label)));
+                //node.children.push_back(std::make_unique<SyntaxTreeNode>(std::move(child_label)));
+                node.children.push_back(std::move(child_label));
             }
             else
             {
@@ -232,7 +248,17 @@ namespace shrek
 
         SyntaxTreeNode node;
         node.token = tokens[index];
-        node.op_code = OpCode::label;
+        ++index;
+
+        tree.syntax.push_back(std::move(node));
+    }
+
+    static void parse_comment(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree)
+    {
+        assert(index < tokens.size());
+
+        SyntaxTreeNode node;
+        node.token = tokens[index];
         ++index;
 
         tree.syntax.push_back(std::move(node));

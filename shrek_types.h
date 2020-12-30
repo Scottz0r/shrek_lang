@@ -15,21 +15,18 @@ namespace shrek
         label,
         push0,
         pop,
-        add,
-        subtract,
-        jump0,
-        jump_neg,
-        bump_plus,
-        bump_neg,
-        input,
-        output
+        bump,
+        func,
+        jump,
+        push_const
     };
 
     enum class TokenType
     {
         whitespace,
         command,
-        label
+        label,
+        comment
     };
 
     struct Token
@@ -41,9 +38,8 @@ namespace shrek
 
     struct SyntaxTreeNode
     {
-        OpCode op_code = OpCode::no_op;
         Token token;
-        std::vector<std::unique_ptr<SyntaxTreeNode>> children;
+        std::vector<SyntaxTreeNode> children;
     };
 
     struct SyntaxTree

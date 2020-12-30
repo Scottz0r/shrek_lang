@@ -7,7 +7,7 @@
 #include <Windows.h>
 
 #include "fmt/core.h"
-#include "shrek_interpreter.h"
+#include "shrek_parser.h"
 #include "shrek_runtime.h"
 #include "shrek_platform_specific.h"
 

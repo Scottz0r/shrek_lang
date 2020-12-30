@@ -1,7 +1,9 @@
 #include "shrek_runtime.h"
 
+#include <cassert>
 #include <stack>
 #include "fmt/core.h"
+#include "shrek_builtins.h"
 
 #define MAKE_RUNTIME_ERROR(what) (RuntimeError(what, program_counter, curr_code->op_code))
 
@@ -23,16 +25,12 @@ namespace shrek
     static void exit_program();
     static std::size_t get_jump_location(int label_num);
 
-    static void push0();
-    static void pop();
-    static void add();
-    static void subtract();
-    static void jump0();
-    static void jump_neg();
-    static void bump_plus();
-    static void bump_neg();
-    static void input();
-    static void output();
+    static void op_push0();
+    static void op_pop();
+    static void op_bump();
+    static void op_func();
+    static void op_jump();
+    static void op_push_const();
 
     void execute(const std::vector<ByteCode>& code)
     {
@@ -91,38 +89,25 @@ namespace shrek
                 step_program();
                 break;
             case OpCode::push0:
-                push0();
+                op_push0();
                 break;
             case OpCode::pop:
-                pop();
+                op_pop();
                 break;
-            case OpCode::add:
-                add();
+            case OpCode::bump:
+                op_bump();
                 break;
-            case OpCode::subtract:
-                subtract();
+            case OpCode::func:
+                op_func();
                 break;
-            case OpCode::jump0:
-                jump0();
+            case OpCode::jump:
+                op_jump();
                 break;
-            case OpCode::jump_neg:
-                jump_neg();
-                break;
-            case OpCode::bump_plus:
-                bump_plus();
-                break;
-            case OpCode::bump_neg:
-                bump_neg();
-                break;
-            case OpCode::input:
-                input();
-                break;
-            case OpCode::output:
-                output();
+            case OpCode::push_const:
+                op_push_const();
                 break;
             default:
-                // TODO: Different error type? This seems like an error in development of the runtime.
-                throw RuntimeError("Unknown operation", program_counter, OpCode::no_op);
+                throw RuntimeError("Invalid operation", program_counter, OpCode::no_op);
             }
         }
     }
@@ -157,13 +142,13 @@ namespace shrek
         return npos;
     }
 
-    static void push0()
+    static void op_push0()
     {
         stack.push(0);
         step_program();
     }
 
-    static void pop()
+    static void op_pop()
     {
         if (stack.empty())
         {
@@ -175,81 +160,7 @@ namespace shrek
         step_program();
     }
 
-    static void add()
-    {
-        if (stack.size() < 2)
-        {
-            throw MAKE_RUNTIME_ERROR("Not enough stack for add");
-        }
-
-        auto a = stack.top();
-        stack.pop();
-        auto b = stack.top();
-        stack.pop();
-
-        stack.push(a + b);
-
-        step_program();
-    }
-
-    static void subtract()
-    {
-        if (stack.size() < 2)
-        {
-            throw MAKE_RUNTIME_ERROR("Not enough stack for subtract");
-        }
-
-        auto a = stack.top();
-        stack.pop();
-        auto b = stack.top();
-        stack.pop();
-
-        stack.push(b - a);
-
-        step_program();
-    }
-
-    static void jump0()
-    {
-        if (stack.empty())
-        {
-            throw MAKE_RUNTIME_ERROR("Stack is empty");
-        }
-
-        auto val = stack.top();
-
-        if (val == 0)
-        {
-            const auto& code = (*program)[program_counter];
-            program_counter = get_jump_location(code.a);
-        }
-        else
-        {
-            step_program();
-        }
-    }
-
-    static void jump_neg()
-    {
-        if (stack.empty())
-        {
-            throw MAKE_RUNTIME_ERROR("Stack is empty");
-        }
-
-        auto val = stack.top();
-
-        if (val < 0)
-        {
-            const auto& code = (*program)[program_counter];
-            program_counter = get_jump_location(code.a);
-        }
-        else
-        {
-            step_program();
-        }
-    }
-
-    static void bump_plus()
+    static void op_bump()
     {
         if (stack.empty())
         {
@@ -265,49 +176,91 @@ namespace shrek
         step_program();
     }
 
-    static void bump_neg()
+    static void op_func()
     {
         if (stack.empty())
         {
             throw MAKE_RUNTIME_ERROR("Stack is empty");
         }
 
-        auto val = stack.top();
+        auto func_num = stack.top();
         stack.pop();
 
-        --val;
-        stack.push(val);
+        std::string errmsg;
+        if (!run_func(func_num, stack, errmsg))
+        {
+            throw MAKE_RUNTIME_ERROR(errmsg);
+        }
 
         step_program();
     }
 
-    static void input()
+    static void op_jump()
     {
-        std::string input;
-        //std::cin >> input;
+        assert(curr_code != nullptr);
 
+        constexpr auto jump = 0;
+        constexpr auto jump_0 = 1;
+        constexpr auto jump_neg = 2;
 
-        // TODO: Better parsing?
-        auto val = std::stoi(input);
-        stack.push(val);
-
-        step_program();
-    }
-
-    static void output()
-    {
         if (stack.empty())
         {
-            // TODO: Macro to help make this?
             throw MAKE_RUNTIME_ERROR("Stack is empty");
         }
 
-        auto val = stack.top();
+        // Top of stack indicates jump type.
+        auto s0 = stack.top();
         stack.pop();
 
-        fmt::print("{:#x}\n", val);
-        fflush(stdout);
+        if (s0 == jump)
+        {
+            program_counter = get_jump_location(curr_code->a);
+        }
+        else if(s0 == jump_0)
+        {
+            if (stack.empty())
+            {
+                throw MAKE_RUNTIME_ERROR("jump0 requires value on stack after jump type");
+            }
 
+            auto s1 = stack.top();
+            if (s1 == 0)
+            {
+                program_counter = get_jump_location(curr_code->a);
+            }
+            else
+            {
+                step_program();
+            }
+        }
+        else if (s0 == jump_neg)
+        {
+            if (stack.empty())
+            {
+                throw MAKE_RUNTIME_ERROR("jump_neg requires value on stack after jump type");
+            }
+
+            auto s1 = stack.top();
+            if (s1 < 0)
+            {
+                program_counter = get_jump_location(curr_code->a);
+            }
+            else
+            {
+                step_program();
+            }
+        }
+        else
+        {
+            throw MAKE_RUNTIME_ERROR("Invalid jump type");
+        }
+    }
+
+    static void op_push_const()
+    {
+        assert(curr_code != nullptr);
+
+        stack.push(curr_code->a);
         step_program();
     }
 }

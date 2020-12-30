@@ -1,1 +1,21 @@
-sHHs!r!hsKsHKsHHKRS!e!sk!r!!e!s
+SRRR # Counter value, set to 3
+
+!R!
+S # 0 value
+SRE # Push 1/output, call func
+
+R # Bump 0 to 1
+SRE # Push 1/output, call func
+
+R # Bump 1 to 2
+SRE # Push 1/output, call func
+
+H # Pop stack
+
+# Subtract 1 from counter
+SR # Push 1 to stack
+SRRRE # Call subtract func (3) to {1} - {0}
+
+SRK!E! # Jump if counter 0
+SK!R! # Jump to !R!
+!E!
