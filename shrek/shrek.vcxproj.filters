@@ -15,46 +15,46 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="windows_main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="shrek_runtime.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="format.cc">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="shrek_parser.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="shrek_builtins.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="shrek_exts.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
+    <ClInclude Include="shrek.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="shrek_builtins.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="shrek_parser.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="shrek_platform_specific.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="shrek_runtime.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="shrek_types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="shrek_platform_specific.h">
+    <ClInclude Include="shrek_exports.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="shrek_parser.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="shrek_builtins.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="shrek_ext.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="shrek.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="format.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="shrek_builtins.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="shrek_parser.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="shrek_runtime.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="windows_platform_specific.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="shrek.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

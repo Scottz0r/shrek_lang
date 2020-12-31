@@ -5,7 +5,7 @@
 
 namespace shrek
 {
-    std::vector<ByteCode> interpret_code(const std::vector<std::string>& args);
+    std::vector<ByteCode> interpret_code(const std::string& filename);
 }
 
 #endif // _SHREK_INTERPRETER_H_INCLUDE_GUARD

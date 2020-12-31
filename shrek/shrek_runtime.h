@@ -1,21 +1,16 @@
 #ifndef _SHREK_RUNTIME_H_INCLUDE_GUARD
 #define _SHREK_RUNTIME_H_INCLUDE_GUARD
 
+#include "shrek.h"
 #include "shrek_types.h"
-#include "shrek_ext.h"
 
 #include <functional>
 #include <stack>
 #include <vector>
 #include <optional>
 
-// TODO: Put in a shrek_ext.h header?
-
-
 namespace shrek
 {
-    // using ShrekFunc = std::function<void(ShrekRuntime&)>;
-
     struct RuntimeHooks
     {
         virtual ~RuntimeHooks() = default;
@@ -33,6 +28,10 @@ namespace shrek
         RuntimeHooks* m_hooks = nullptr;
         std::stack<int> m_stack;
         std::unordered_map<int, ShrekFunc> m_func_table;
+        std::string m_func_exception;
+
+        // Handle for C API calls.
+        ShrekHandle* m_owning_handle;
 
         void build_jump_table();
         int main_loop();
@@ -47,17 +46,19 @@ namespace shrek
         void op_push_const();
 
     public:
+        ShrekRuntime(ShrekHandle* owning_handle);
+
         inline std::stack<int>& stack() { return m_stack; }
 
-        bool load(std::vector<ByteCode>&& code);
-
-        int execute();
+        int run(int argc, const char** argv);
 
         void set_hooks(RuntimeHooks* hooks);
 
         const ByteCode& curr_code() const;
 
         bool register_function(int func_number, ShrekFunc func);
+
+        void set_func_exception(const std::string& value);
     };
 }
 

@@ -6,48 +6,12 @@
 #include <sstream>
 #include <Windows.h>
 
-#include "fmt/core.h"
-#include "shrek_parser.h"
-#include "shrek_runtime.h"
 #include "shrek_platform_specific.h"
 
-bool utf8_to_utf16(const std::string& utf8, std::wstring& out_utf16);
-bool utf16_to_utf8(const std::wstring& utf16, std::string& out_utf8);
+static bool utf8_to_utf16(const std::string& utf8, std::wstring& out_utf16);
+static bool utf16_to_utf8(const std::wstring& utf16, std::string& out_utf8);
 
-int wmain(int argc, const wchar_t** argv)
-{
-    // To make output work with UTF-8. Console must have supporting character set.
-    SetConsoleOutputCP(CP_UTF8);
-    setvbuf(stdout, nullptr, _IOFBF, 4096);
-
-    // Convert arguments into utf-8.
-    std::vector<std::string> utf8_args;
-    for (int i = 0; i < argc; ++i)
-    {
-        std::string value;
-        if (!utf16_to_utf8(argv[i], value))
-        {
-            fmt::print("Argument utf-8 conversion error");
-            exit(1);
-        }
-
-        utf8_args.push_back(std::move(value));
-    }
-
-    auto byte_code = shrek::interpret_code(utf8_args);
-
-    shrek::ShrekRuntime runtime;
-
-    if (!runtime.load(std::move(byte_code)))
-    {
-        fmt::print("Failed to load runtime");
-        exit(1);
-    }
-
-    return runtime.execute();
-}
-
-bool utf8_to_utf16(const std::string& utf8, std::wstring& out_utf16)
+static bool utf8_to_utf16(const std::string& utf8, std::wstring& out_utf16)
 {
     constexpr auto max_size = (1 << 16) - 1;
 
@@ -73,7 +37,7 @@ bool utf8_to_utf16(const std::string& utf8, std::wstring& out_utf16)
     return result;
 }
 
-bool utf16_to_utf8(const std::wstring& utf16, std::string& out_utf8)
+static bool utf16_to_utf8(const std::wstring& utf16, std::string& out_utf8)
 {
     constexpr auto max_size = (1 << 16) - 1;
 

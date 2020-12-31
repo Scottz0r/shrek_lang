@@ -18,7 +18,7 @@ namespace shrek
                 std::string line;
                 std::getline(std::cin, line);
 
-                if (line.size() > std::numeric_limits<int>::max())
+                if (line.size() > (std::size_t)std::numeric_limits<int>::max())
                 {
                     shrek_set_except(shrek, "input too large");
                     return 1;

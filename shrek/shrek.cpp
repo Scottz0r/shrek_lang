@@ -1,8 +1,6 @@
-// TODO: This should really be in another project that builds a shared library.
+#include "shrek.h"
 
-#include "shrek_ext.h"
-
-// TODO: I don't think this is the correct way to go about all of this.
+#include "shrek.h"
 #include "shrek_runtime.h"
 
 #ifdef __cplusplus
@@ -10,7 +8,38 @@ extern "C"
 #endif
 {
 
-int shrek_register_func(ShrekHandle* shrek, int func_number, ShrekFunc func)
+typedef struct ShrekHandle
+{
+    void* runtime;
+} ShrekHandle;
+
+shrek_API_FUNC(ShrekHandle*) shrek_new_runtime()
+{
+    auto shrek = new ShrekHandle;
+
+    auto rt = new shrek::ShrekRuntime(shrek);
+    shrek->runtime = (void*)rt;
+
+    return shrek;
+}
+
+shrek_API_FUNC(void) shrek_free_runtime(ShrekHandle* shrek)
+{
+    if (shrek)
+    {
+        auto runtime = (shrek::ShrekRuntime*)shrek->runtime;
+        delete runtime;
+        delete shrek;
+    }
+}
+
+shrek_API_FUNC(int) shrek_run(ShrekHandle* shrek, int argc, const char** argv)
+{
+    auto rt = (shrek::ShrekRuntime*)shrek->runtime;
+    return rt->run(argc, argv);
+}
+
+shrek_API_FUNC(int) shrek_register_func(ShrekHandle* shrek, int func_number, ShrekFunc func)
 {
     if (!shrek)
     {
@@ -26,7 +55,7 @@ int shrek_register_func(ShrekHandle* shrek, int func_number, ShrekFunc func)
     return SHREK_OK;
 }
 
-void shrek_set_except(ShrekHandle* shrek, const char* errmsg)
+shrek_API_FUNC(void) shrek_set_except(ShrekHandle* shrek, const char* errmsg)
 {
     if (!shrek)
     {
@@ -38,7 +67,7 @@ void shrek_set_except(ShrekHandle* shrek, const char* errmsg)
     // TODO: Implement this.
 }
 
-int shrek_stack_size(ShrekHandle* shrek)
+shrek_API_FUNC(int) shrek_stack_size(ShrekHandle* shrek)
 {
     if (!shrek)
     {
@@ -50,7 +79,7 @@ int shrek_stack_size(ShrekHandle* shrek)
     return (int)rt->stack().size();
 }
 
-int shrek_pop(ShrekHandle* shrek, int* out_value)
+shrek_API_FUNC(int) shrek_pop(ShrekHandle* shrek, int* out_value)
 {
     if (shrek_peek(shrek, out_value) != SHREK_OK)
     {
@@ -63,7 +92,7 @@ int shrek_pop(ShrekHandle* shrek, int* out_value)
     return SHREK_OK;
 }
 
-int shrek_push(ShrekHandle* shrek, int value)
+shrek_API_FUNC(int) shrek_push(ShrekHandle* shrek, int value)
 {
     if (!shrek)
     {
@@ -75,7 +104,7 @@ int shrek_push(ShrekHandle* shrek, int value)
     return SHREK_OK;
 }
 
-int shrek_peek(ShrekHandle* shrek, int* out_value)
+shrek_API_FUNC(int) shrek_peek(ShrekHandle* shrek, int* out_value)
 {
     if (!shrek)
     {

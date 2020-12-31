@@ -5,36 +5,39 @@
 #include "fmt/core.h"
 
 #include "shrek.h"
-#include "shrek_builtins.h"
+#include "shrek_parser.h"
 
 namespace shrek
 {
     constexpr auto npos = std::numeric_limits<std::size_t>::max();
     constexpr auto jump_table_default_size = 8;
 
-    bool ShrekRuntime::load(std::vector<ByteCode>&& code)
+    ShrekRuntime::ShrekRuntime(ShrekHandle* owning_handle)
+        : m_owning_handle(owning_handle)
     {
-        m_code = std::move(code);
 
-        ShrekHandle handle;
-        handle.runtime = this;
-        if (shrek_builtins_register(&handle) != SHREK_OK)
-        {
-            fmt::print("Failed to load built-ins");
-            return false;
-        }
-
-        return true;
     }
 
-    int ShrekRuntime::execute()
+    int ShrekRuntime::run(int argc, const char** argv)
     {
-        int exit_code = 0;
+        // TODO: Actual argument support.
+        if (argc < 2)
+        {
+            fmt::print("Invalid arguments. Missing code file.");
+            return 1;
+        }
 
         try
         {
+            m_code = shrek::interpret_code(argv[1]);
+
             build_jump_table();
-            exit_code = main_loop();
+            return main_loop();
+        }
+        catch (const SyntaxError& ex)
+        {
+            fmt::print("Syntax Error: {} at index {}, token \"{}\"", ex.what(), ex.index(), ex.token());
+            return 1;
         }
         catch (const RuntimeError& ex)
         {
@@ -46,15 +49,13 @@ namespace shrek
                 m_hooks->on_runtime_error();
             }
 
-            exit_code = 1;
+            return 1;
         }
         catch (...)
         {
             fmt::print("Runtime encountered an unexpected exception");
-            exit_code = 256;
+            return 256;
         }
-
-        return exit_code;
     }
 
     void ShrekRuntime::set_hooks(RuntimeHooks* hooks)
@@ -72,7 +73,7 @@ namespace shrek
             const auto& code = m_code[i];
             if (code.op_code == OpCode::label)
             {
-                if (code.a + 1 > m_jump_table.size())
+                if ((std::size_t)code.a + 1 > m_jump_table.size())
                 {
                     m_jump_table.resize(code.a + 1, npos);
                 }
@@ -101,6 +102,11 @@ namespace shrek
 
         m_func_table[func_number] = func;
         return true;
+    }
+
+    void ShrekRuntime::set_func_exception(const std::string& value)
+    {
+        m_func_exception = value;
     }
 
     int ShrekRuntime::main_loop()
@@ -157,7 +163,7 @@ namespace shrek
 
     std::size_t ShrekRuntime::get_jump_location(int label_num)
     {
-        if (label_num < m_jump_table.size())
+        if ((std::size_t)label_num < m_jump_table.size())
         {
             return m_jump_table[label_num];
         }
@@ -212,14 +218,22 @@ namespace shrek
         auto it = m_func_table.find(func_num);
         if (it != m_func_table.end())
         {
-            ShrekHandle handle;
-            handle.runtime = this;
-            int rc = it->second(&handle);
+            m_func_exception.clear();
+
+            int rc = it->second(m_owning_handle);
             if (rc != SHREK_OK)
             {
-                // TODO: Error.
-                throw RuntimeError("Error running function. TODO: Actual error reported.");
+                if (m_func_exception.empty())
+                {
+                    m_func_exception = "registered function did not set exception text";
+                }
+
+                throw RuntimeError(fmt::format("Error running function {}: {}", func_num, m_func_exception));
             }
+        }
+        else
+        {
+            throw RuntimeError(fmt::format("Function number {} not registered", func_num));
         }
 
         step_program();

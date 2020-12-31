@@ -32,35 +32,28 @@ namespace shrek
     static void parse_comment(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree);
     std::vector<ByteCode> interpret_code_impl(const std::string& code);
 
-    std::vector<ByteCode> interpret_code(const std::vector<std::string>& args)
+    std::vector<ByteCode> interpret_code(const std::string& filename)
     {
-        // TODO: Parse arguments.
-        if (args.size() < 2)
-        {
-            fmt::print("Invalid arguments");
-            exit(1);
-        }
-
         std::string code;
-        if (!read_all_text(args.at(1), code))
+        if (!read_all_text(filename, code))
         {
-            fmt::print("Failed to read source file");
-            exit(1);
+            throw RuntimeError("Failed to read source file");
         }
 
         try
         {
             return interpret_code_impl(code);
         }
-        catch (const SyntaxError& ex)
+        catch (SyntaxError)
         {
-            fmt::print("Syntax Error: {} at index {}, token \"{}\"", ex.what(), ex.index(), ex.token());
-            exit(1);
+            //fmt::print("Syntax Error: {} at index {}, token \"{}\"", ex.what(), ex.index(), ex.token());
+            //exit(1);
+            throw;
         }
         catch (...)
         {
             fmt::print("Interpreter encountered an unexpected exception.");
-            exit(1);
+            throw;
         }
     }
 
