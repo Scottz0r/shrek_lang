@@ -49,6 +49,7 @@ namespace shrek
 
     struct ByteCode
     {
+        std::size_t source_code_index;
         OpCode op_code = OpCode::no_op;
         int a = 0;
     };
@@ -77,22 +78,14 @@ namespace shrek
     class RuntimeError
     {
     public:
-        RuntimeError(const std::string& what, std::size_t program_counter, OpCode op_code)
+        RuntimeError(const std::string& what)
             : m_what(what)
-            , m_program_counter(program_counter)
-            , m_op_code( op_code )
         {}
 
         const std::string& what() const { return m_what; }
 
-        std::size_t program_counter() const { return m_program_counter; }
-
-        OpCode op_code() const { return m_op_code; }
-
     private:
         std::string m_what;
-        std::size_t m_program_counter;
-        OpCode m_op_code;
     };
 }
 

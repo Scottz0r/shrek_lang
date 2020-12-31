@@ -153,12 +153,15 @@
   <ItemGroup>
     <ClCompile Include="format.cc" />
     <ClCompile Include="shrek_builtins.cpp" />
+    <ClCompile Include="shrek_exts.cpp" />
     <ClCompile Include="shrek_parser.cpp" />
     <ClCompile Include="shrek_runtime.cpp" />
     <ClCompile Include="windows_main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="shrek.h" />
     <ClInclude Include="shrek_builtins.h" />
+    <ClInclude Include="shrek_ext.h" />
     <ClInclude Include="shrek_parser.h" />
     <ClInclude Include="shrek_platform_specific.h" />
     <ClInclude Include="shrek_runtime.h" />

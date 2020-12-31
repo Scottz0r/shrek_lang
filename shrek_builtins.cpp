@@ -1,206 +1,223 @@
 #include "shrek_builtins.h"
 
+#include <cassert>
 #include <iostream>
-
 #include <unordered_map>
 #include "fmt/format.h"
 
 namespace shrek
 {
-    typedef void(*func_type)(void);
-
-    static std::unordered_map<int, func_type> func_table =
-    {
-        {0, builtins::input},
-        {1, builtins::output},
-        {2, builtins::add},
-        {3, builtins::subtract},
-        {4, builtins::multiply},
-        {5, builtins::divide},
-        {6, builtins::mod},
-        {7, builtins::double_},
-        {8, builtins::negate}
-    };
-
-    static std::stack<int>* p_stack;
-    std::string except;
-
-    // TODO: Would be nice if the runtime was an object that could be passed to this.
-    bool run_func(int func_num, std::stack<int>& stack, std::string& errmsg)
-    {
-        p_stack = &stack;
-
-        auto it = func_table.find(func_num);
-        if (it == func_table.end())
-        {
-            errmsg = "Function not found";
-            return false;
-        }
-
-        except.clear();
-        it->second();
-        if (!except.empty())
-        {
-            errmsg = except;
-            return false;
-        }
-
-        return true;
-    }
-
     namespace builtins
     {
-        void input()
+        int input(ShrekHandle* shrek) noexcept
         {
-            std::string line;
-            std::getline(std::cin, line);
+            assert(shrek);
 
-            if (line.size() > std::numeric_limits<int>::max())
+            try
             {
-                except = "input too large";
-                return;
-            }
+                std::string line;
+                std::getline(std::cin, line);
 
-            std::size_t i = line.size();
-            while (i-- > 0)
+                if (line.size() > std::numeric_limits<int>::max())
+                {
+                    shrek_set_except(shrek, "input too large");
+                    return 1;
+                }
+
+                std::size_t i = line.size();
+                while (i-- > 0)
+                {
+                    shrek_push(shrek, line[i]);
+                }
+
+                shrek_push(shrek, (int)line.size());
+
+                return SHREK_OK;
+            }
+            catch (...)
             {
-                p_stack->push(line[i]);
+                shrek_set_except(shrek, "i/o error");
+                return SHREK_ERROR;
             }
-
-            p_stack->push((int)line.size());
         }
 
-        void output()
+        int output(ShrekHandle* shrek) noexcept
         {
-            if (p_stack->empty())
+            assert(shrek);
+
+            int value;
+            if (shrek_peek(shrek, &value) != SHREK_OK)
             {
-                except = "output requires value on the stack";
-                return;
+                shrek_set_except(shrek, "output requires value on the stack");
+                return SHREK_ERROR;
             }
 
-            auto value = p_stack->top();
-            fmt::print("{:#x}\n", value);
-            std::cout.flush();
+            try
+            {
+                fmt::print("{:#x}\n", value);
+                std::cout.flush();
+
+                return SHREK_OK;
+            }
+            catch (...)
+            {
+                shrek_set_except(shrek, "output error");
+                return SHREK_ERROR;
+            }
         }
 
-        void add()
+        int add(ShrekHandle* shrek) noexcept
         {
-            if (p_stack->size() < 2)
+            if (shrek_stack_size(shrek) < 2)
             {
-                except = "add requires two values on the stack";
-                return;
+                shrek_set_except(shrek, "add requires two values on the stack");
+                return SHREK_ERROR;
             }
 
-            auto v0 = p_stack->top();
-            p_stack->pop();
-
-            auto v1 = p_stack->top();
-            p_stack->pop();
+            int v0, v1;
+            shrek_pop(shrek, &v0);
+            shrek_pop(shrek, &v1);
 
             auto r = v1 + v0;
-            p_stack->push(r);
+            shrek_push(shrek, r);
+
+            return SHREK_OK;
         }
 
-        void subtract()
+        int subtract(ShrekHandle* shrek) noexcept
         {
-            if (p_stack->size() < 2)
+            if (shrek_stack_size(shrek) < 2)
             {
-                except = "subtract requires two values on the stack";
-                return;
+                shrek_set_except(shrek, "subtract requires two values on the stack");
+                return SHREK_ERROR;
             }
 
-            auto v0 = p_stack->top();
-            p_stack->pop();
-
-            auto v1 = p_stack->top();
-            p_stack->pop();
+            int v0, v1;
+            shrek_pop(shrek, &v0);
+            shrek_pop(shrek, &v1);
 
             auto r = v1 - v0;
-            p_stack->push(r);
+            shrek_push(shrek, r);
+
+            return SHREK_OK;
         }
 
-        void multiply()
+        int multiply(ShrekHandle* shrek)
         {
-            if (p_stack->size() < 2)
+            if (shrek_stack_size(shrek) < 2)
             {
-                except = "multiply requires two values on the stack";
-                return;
+                shrek_set_except(shrek, "multiply requires two values on the stack");
+                return SHREK_ERROR;
             }
 
-            auto v0 = p_stack->top();
-            p_stack->pop();
-
-            auto v1 = p_stack->top();
-            p_stack->pop();
+            int v0, v1;
+            shrek_pop(shrek, &v0);
+            shrek_pop(shrek, &v1);
 
             auto r = v1 * v0;
-            p_stack->push(r);
+            shrek_push(shrek, r);
+
+            return SHREK_OK;
         }
 
-        void divide()
+        int divide(ShrekHandle* shrek)
         {
-            if (p_stack->size() < 2)
+            if (shrek_stack_size(shrek) < 2)
             {
-                except = "divide requires two values on the stack";
-                return;
+                shrek_set_except(shrek, "divide requires two values on the stack");
+                return SHREK_ERROR;
             }
 
-            auto v0 = p_stack->top();
-            p_stack->pop();
-
-            auto v1 = p_stack->top();
-            p_stack->pop();
+            int v0, v1;
+            shrek_pop(shrek, &v0);
+            shrek_pop(shrek, &v1);
 
             auto r = v1 / v0;
-            p_stack->push(r);
+            shrek_push(shrek, r);
+
+            return SHREK_OK;
         }
 
-        void mod()
+        int mod(ShrekHandle* shrek)
         {
-            if (p_stack->size() < 2)
+            if (shrek_stack_size(shrek) < 2)
             {
-                except = "mod requires two values on the stack";
-                return;
+                shrek_set_except(shrek, "mod requires two values on the stack");
+                return SHREK_ERROR;
             }
 
-            auto v0 = p_stack->top();
-            p_stack->pop();
-
-            auto v1 = p_stack->top();
-            p_stack->pop();
+            int v0, v1;
+            shrek_pop(shrek, &v0);
+            shrek_pop(shrek, &v1);
 
             auto r = v1 % v0;
-            p_stack->push(r);
+            shrek_push(shrek, r);
+
+            return SHREK_OK;
         }
 
-        void double_()
+        int double_(ShrekHandle* shrek)
         {
-            if (p_stack->empty())
+            if (shrek_stack_size(shrek) < 1)
             {
-                except = "double requires one value on the stack";
-                return;
+                shrek_set_except(shrek, "double requires one value on the stack");
+                return SHREK_ERROR;
             }
 
-            auto v0 = p_stack->top();
-            p_stack->pop();
+            int v0;
+            shrek_pop(shrek, &v0);
 
             auto r = v0 * 2;
-            p_stack->push(r);
+            shrek_push(shrek, r);
+
+            return SHREK_OK;
         }
 
-        void negate()
+        int negate(ShrekHandle* shrek)
         {
-            if (p_stack->empty())
+            if (shrek_stack_size(shrek) < 1)
             {
-                except = "negate requires one value on the stack";
-                return;
+                shrek_set_except(shrek, "negate requires one value on the stack");
+                return SHREK_ERROR;
             }
 
-            auto v0 = p_stack->top();
-            p_stack->pop();
+            int v0;
+            shrek_pop(shrek, &v0);
 
             auto r = -v0;
-            p_stack->push(r);
+            shrek_push(shrek, r);
+
+            return SHREK_OK;
         }
+    }
+}
+
+extern "C"
+{
+    int shrek_builtins_register(ShrekHandle* shrek)
+    {
+        std::vector<ShrekFunc> builtin_funcs =
+        {
+            shrek::builtins::input,
+            shrek::builtins::output,
+            shrek::builtins::add,
+            shrek::builtins::subtract,
+            shrek::builtins::multiply,
+            shrek::builtins::divide,
+            shrek::builtins::mod,
+            shrek::builtins::double_,
+            shrek::builtins::negate,
+        };
+
+        for (std::size_t i = 0; i < builtin_funcs.size(); ++i)
+        {
+            int rc = shrek_register_func(shrek, (int)i, builtin_funcs[i]);
+            if (rc != SHREK_OK)
+            {
+                return SHREK_ERROR;
+            }
+        }
+
+        return SHREK_OK;
     }
 }

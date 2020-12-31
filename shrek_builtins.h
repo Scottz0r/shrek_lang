@@ -1,33 +1,11 @@
 #ifndef _SHREK_BUILTINS_H_INCLUDE_GUARD
 #define _SHREK_BUILTINS_H_INCLUDE_GUARD
 
-#include "shrek_types.h"
-#include <stack>
+#include "shrek_ext.h"
 
-namespace shrek
+extern "C"
 {
-    bool run_func(int func_num, std::stack<int>& stack, std::string& errmsg);
-
-    namespace builtins
-    {
-        void input();
-
-        void output();
-
-        void add();
-
-        void subtract();
-
-        void multiply();
-
-        void divide();
-
-        void mod();
-
-        void double_();
-
-        void negate();
-    }
+    int shrek_builtins_register(ShrekHandle* handle);
 }
 
 #endif // !_SHREK_BUILTINS_H_INCLUDE_GUARD

@@ -35,9 +35,16 @@ int wmain(int argc, const wchar_t** argv)
     }
 
     auto byte_code = shrek::interpret_code(utf8_args);
-    shrek::execute(byte_code);
 
-    return 0;
+    shrek::ShrekRuntime runtime;
+
+    if (!runtime.load(std::move(byte_code)))
+    {
+        fmt::print("Failed to load runtime");
+        exit(1);
+    }
+
+    return runtime.execute();
 }
 
 bool utf8_to_utf16(const std::string& utf8, std::wstring& out_utf16)

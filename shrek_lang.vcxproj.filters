@@ -30,6 +30,9 @@
     <ClCompile Include="shrek_builtins.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="shrek_exts.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="shrek_runtime.h">
@@ -45,6 +48,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="shrek_builtins.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="shrek_ext.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="shrek.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
