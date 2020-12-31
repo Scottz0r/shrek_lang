@@ -18,13 +18,5 @@
     <ClCompile Include="windows_main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="shrek_interpreter.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="shrek_interpreter.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

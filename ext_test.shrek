@@ -1,0 +1,8 @@
+# For testing the shrek_ext_demo.dnky module. Call function 100
+
+SRRRRRRRRRR # Put 10 on stack
+SRRRRRRRRRR # Put another 10 on stack
+
+SRRRRE # Multiply top two stack (get 100)
+
+E # Call function 100
