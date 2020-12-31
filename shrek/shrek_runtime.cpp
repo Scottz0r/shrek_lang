@@ -6,6 +6,7 @@
 
 #include "shrek.h"
 #include "shrek_parser.h"
+#include "shrek_platform_specific.h"
 
 namespace shrek
 {
@@ -30,6 +31,9 @@ namespace shrek
         try
         {
             m_code = shrek::interpret_code(argv[1]);
+
+            // Try to discover extension modules before execution.
+            discover_modules(m_owning_handle);
 
             build_jump_table();
             return main_loop();

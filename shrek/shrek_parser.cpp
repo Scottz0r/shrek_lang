@@ -1,5 +1,3 @@
-// TODO: This should really be named "shrek_parser"
-
 #include "shrek_parser.h"
 
 #include <cassert>

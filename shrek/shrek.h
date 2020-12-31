@@ -15,6 +15,8 @@ typedef struct ShrekHandle ShrekHandle;
 
 typedef int (*ShrekFunc)(ShrekHandle*);
 
+typedef int (*ShrekRegister)(ShrekHandle* shrek);
+
 // Runtime API
 shrek_API_FUNC(ShrekHandle*) shrek_new_runtime();
 
