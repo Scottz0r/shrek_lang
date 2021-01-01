@@ -189,6 +189,21 @@ namespace shrek
 
             return SHREK_OK;
         }
+
+        int clone(ShrekHandle* shrek)
+        {
+            if (shrek_stack_size(shrek) < 1)
+            {
+                shrek_set_except(shrek, "clone requires one value on the stack");
+                return SHREK_ERROR;
+            }
+
+            int v0;
+            shrek_peek(shrek, &v0);
+            shrek_push(shrek, v0);
+
+            return SHREK_OK;
+        }
     }
 }
 
@@ -207,6 +222,7 @@ extern "C"
             shrek::builtins::mod,
             shrek::builtins::double_,
             shrek::builtins::negate,
+            shrek::builtins::clone
         };
 
         for (std::size_t i = 0; i < builtin_funcs.size(); ++i)

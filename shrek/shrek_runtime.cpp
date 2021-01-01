@@ -169,6 +169,7 @@ namespace shrek
     {
         if ((std::size_t)label_num < m_jump_table.size())
         {
+            // If label not defined, npos will be returned, which will terminate the program.
             return m_jump_table[label_num];
         }
 
