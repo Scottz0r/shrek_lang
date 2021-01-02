@@ -47,7 +47,7 @@ namespace shrek
         std::vector<SyntaxTreeNode> syntax;
     };
 
-    struct ByteCode
+    struct ExpandedByteCode
     {
         std::size_t source_code_index;
         OpCode op_code = OpCode::no_op;

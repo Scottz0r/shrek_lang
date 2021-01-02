@@ -77,7 +77,7 @@ The func command will remove `{0}` from the stack.
 SHREK comes with the following built-in commands.
 
 ### 0. Input
-Read string from stdin and place on stack. The string length will be placed at `{0}`. The string will be added to the stack in reverse order, so popping the stack will return the string in the correct order. Strings will **not** be null terminated.
+Read string from stdin and place on stack. The string will be added to the stack in reverse order, so popping the stack will return the string in the correct order. Strings will be null terminated.
 
 ### 1. Output
 |Write `{1}` to stdout. `{1}` will not be popped by this function

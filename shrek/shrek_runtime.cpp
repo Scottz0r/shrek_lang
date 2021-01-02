@@ -5,6 +5,7 @@
 #include "fmt/core.h"
 
 #include "shrek.h"
+#include "shrek_optimizer.h"
 #include "shrek_parser.h"
 #include "shrek_platform_specific.h"
 
@@ -30,7 +31,8 @@ namespace shrek
 
         try
         {
-            m_code = shrek::interpret_code(argv[1]);
+            m_code = shrek::parse_code(argv[1]);
+            m_code = shrek::optimize_code(m_code);
 
             // Try to discover extension modules before execution.
             discover_modules(m_owning_handle);
@@ -87,7 +89,7 @@ namespace shrek
         }
     }
 
-    const ByteCode& ShrekRuntime::curr_code() const
+    const ExpandedByteCode& ShrekRuntime::curr_code() const
     {
         if (m_program_counter < m_code.size())
         {

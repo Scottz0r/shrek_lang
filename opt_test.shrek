@@ -1,0 +1,15 @@
+SRRRR # Push 4 to stack
+SRRRRRRRRRR # Push 10 to stack
+SRRRRE # Call multiply func (num 4)
+
+SRE # Call output func (num 1)
+H
+
+SRR # Push two to stack
+SRRRRRRRE # Call double_val (7)
+SRRRRRRRRE # Call negate (8)
+
+SRE # Call output func (num 1)
+H
+
+S # Push 0 for exit code

@@ -24,13 +24,15 @@ namespace shrek
                     return 1;
                 }
 
+                // Place null terminator
+                shrek_push(shrek, 0);
+
+                // Place input characters in reverse order (so popping is in the "correct" order)
                 std::size_t i = line.size();
                 while (i-- > 0)
                 {
                     shrek_push(shrek, line[i]);
                 }
-
-                shrek_push(shrek, (int)line.size());
 
                 return SHREK_OK;
             }
@@ -54,7 +56,7 @@ namespace shrek
 
             try
             {
-                fmt::print("{:#x}\n", value);
+                fmt::print("{}\n", value);
                 std::cout.flush();
 
                 return SHREK_OK;
@@ -102,7 +104,7 @@ namespace shrek
             return SHREK_OK;
         }
 
-        int multiply(ShrekHandle* shrek)
+        int multiply(ShrekHandle* shrek) noexcept
         {
             if (shrek_stack_size(shrek) < 2)
             {
@@ -120,7 +122,7 @@ namespace shrek
             return SHREK_OK;
         }
 
-        int divide(ShrekHandle* shrek)
+        int divide(ShrekHandle* shrek) noexcept
         {
             if (shrek_stack_size(shrek) < 2)
             {
@@ -138,7 +140,7 @@ namespace shrek
             return SHREK_OK;
         }
 
-        int mod(ShrekHandle* shrek)
+        int mod(ShrekHandle* shrek) noexcept
         {
             if (shrek_stack_size(shrek) < 2)
             {
@@ -156,7 +158,7 @@ namespace shrek
             return SHREK_OK;
         }
 
-        int double_(ShrekHandle* shrek)
+        int double_val(ShrekHandle* shrek) noexcept
         {
             if (shrek_stack_size(shrek) < 1)
             {
@@ -173,7 +175,7 @@ namespace shrek
             return SHREK_OK;
         }
 
-        int negate(ShrekHandle* shrek)
+        int negate(ShrekHandle* shrek) noexcept
         {
             if (shrek_stack_size(shrek) < 1)
             {
@@ -190,7 +192,24 @@ namespace shrek
             return SHREK_OK;
         }
 
-        int clone(ShrekHandle* shrek)
+        int square(ShrekHandle* shrek) noexcept
+        {
+            if (shrek_stack_size(shrek) < 1)
+            {
+                shrek_set_except(shrek, "square requires one value on the stack");
+                return SHREK_ERROR;
+            }
+
+            int v0;
+            shrek_pop(shrek, &v0);
+
+            auto r = v0 * v0;
+            shrek_push(shrek, r);
+
+            return SHREK_OK;
+        }
+
+        int clone(ShrekHandle* shrek) noexcept
         {
             if (shrek_stack_size(shrek) < 1)
             {
@@ -220,8 +239,9 @@ extern "C"
             shrek::builtins::multiply,
             shrek::builtins::divide,
             shrek::builtins::mod,
-            shrek::builtins::double_,
+            shrek::builtins::double_val,
             shrek::builtins::negate,
+            shrek::builtins::square,
             shrek::builtins::clone
         };
 

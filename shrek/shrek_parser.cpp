@@ -28,9 +28,9 @@ namespace shrek
     static void parse_command(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree);
     static void parse_label(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree);
     static void parse_comment(const std::vector<Token>& tokens, std::size_t& index, SyntaxTree& tree);
-    std::vector<ByteCode> interpret_code_impl(const std::string& code);
+    std::vector<ExpandedByteCode> parse_code_impl(const std::string& code);
 
-    std::vector<ByteCode> interpret_code(const std::string& filename)
+    std::vector<ExpandedByteCode> parse_code(const std::string& filename)
     {
         std::string code;
         if (!read_all_text(filename, code))
@@ -40,7 +40,7 @@ namespace shrek
 
         try
         {
-            return interpret_code_impl(code);
+            return parse_code_impl(code);
         }
         catch (SyntaxError)
         {
@@ -55,7 +55,7 @@ namespace shrek
         }
     }
 
-    std::vector<ByteCode> interpret_code_impl(const std::string& code)
+    std::vector<ExpandedByteCode> parse_code_impl(const std::string& code)
     {
         // Tokenize code.
         std::size_t index = 0;
@@ -94,18 +94,19 @@ namespace shrek
         }
 
         // Build Byte Code
-        std::vector<ByteCode> byte_code;
+        std::vector<ExpandedByteCode> byte_code;
         byte_code.reserve(syntax_tree.syntax.size());
 
         std::unordered_map<std::string, int> label_map;
 
         for (const auto& node : syntax_tree.syntax)
         {
-            ByteCode code;
+            ExpandedByteCode code;
 
             if (node.token.token_type == TokenType::label)
             {
                 // Get the label number if already found, otherwise add.
+                code.source_code_index = node.token.index;
                 code.op_code = OpCode::label;
                 code.a = get_or_add(label_map, node.token.value, (int)label_map.size());
 
@@ -114,6 +115,7 @@ namespace shrek
             else if (node.token.token_type == TokenType::command)
             {
                 auto maybe_op_code = get_op_code(node.token.value);
+                code.source_code_index = node.token.index;
                 if (!maybe_op_code)
                 {
                     throw SyntaxError("Invalid command", node.token.index, node.token.value);

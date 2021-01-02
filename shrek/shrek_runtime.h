@@ -22,7 +22,7 @@ namespace shrek
 
     class ShrekRuntime
     {
-        std::vector<ByteCode> m_code;
+        std::vector<ExpandedByteCode> m_code;
         std::vector<std::size_t> m_jump_table;
         std::size_t m_program_counter = 0;
         RuntimeHooks* m_hooks = nullptr;
@@ -54,7 +54,7 @@ namespace shrek
 
         void set_hooks(RuntimeHooks* hooks);
 
-        const ByteCode& curr_code() const;
+        const ExpandedByteCode& curr_code() const;
 
         bool register_function(int func_number, ShrekFunc func);
 
