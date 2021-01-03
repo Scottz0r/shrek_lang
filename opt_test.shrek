@@ -3,13 +3,25 @@ SRRRRRRRRRR # Push 10 to stack
 SRRRRE # Call multiply func (num 4)
 
 SRE # Call output func (num 1)
-H
+H # Pop
 
 SRR # Push two to stack
 SRRRRRRRE # Call double_val (7)
 SRRRRRRRRE # Call negate (8)
 
 SRE # Call output func (num 1)
-H
+
+SR # Push one for key
+SRRRRRRRRRRRE # Call stash add to add key 1
+
+H # pop
+
+SR # Push 1 for key
+SRRRRRRRRRRRRE # Call stash get to get key 1
+SRE # Call output
+H # pop value
+
+SR # Push 1 for key
+SRRRRRRRRRRRRRE # Call function to delete key 1
 
 S # Push 0 for exit code

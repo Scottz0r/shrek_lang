@@ -8,10 +8,12 @@
 #include "shrek_optimizer.h"
 #include "shrek_parser.h"
 #include "shrek_platform_specific.h"
+#include "shrek_builtins.h"
 
 namespace shrek
 {
     constexpr auto npos = std::numeric_limits<std::size_t>::max();
+    constexpr auto max_stack_size = std::numeric_limits<ShrekValue>::max();
     constexpr auto jump_table_default_size = 8;
 
     ShrekRuntime::ShrekRuntime(ShrekHandle* owning_handle)
@@ -99,8 +101,9 @@ namespace shrek
         throw RuntimeError("Program counter at invalid position");
     }
 
-    bool ShrekRuntime::register_function(int func_number, ShrekFunc func)
+    bool ShrekRuntime::register_function(ShrekValue func_number, ShrekFunc func)
     {
+        // Fail registration if a function was already registered with the given number.
         if (m_func_table.count(func_number) > 0)
         {
             return false;
@@ -113,6 +116,71 @@ namespace shrek
     void ShrekRuntime::set_func_exception(const std::string& value)
     {
         m_func_exception = value;
+    }
+
+    void ShrekRuntime::stack_push(ShrekValue value)
+    {
+        if (m_stack.size() >= max_stack_size)
+        {
+            throw RuntimeError("Maximum stack size exceeded");
+        }
+
+        m_stack.push(value);
+    }
+
+    ShrekValue ShrekRuntime::stack_pop()
+    {
+        if (m_stack.empty())
+        {
+            throw RuntimeError("Cannot pop: stack is empty");
+        }
+
+        auto value = m_stack.top();
+        m_stack.pop();
+        return value;
+    }
+
+    ShrekValue ShrekRuntime::stack_peek()
+    {
+        if (m_stack.empty())
+        {
+            throw RuntimeError("Cannot peek: stack is empty");
+        }
+
+        return m_stack.top();
+    }
+
+    ShrekValue ShrekRuntime::stack_size()
+    {
+        return (ShrekValue)m_stack.size();
+    }
+
+    void ShrekRuntime::stash_add(ShrekValue key, ShrekValue value)
+    {
+        m_stash_table[key] = value;
+    }
+
+    bool ShrekRuntime::stash_get(ShrekValue key, ShrekValue& out_value)
+    {
+        auto it = m_stash_table.find(key);
+        if (it == m_stash_table.end())
+        {
+            return false;
+        }
+
+        out_value = it->second;
+        return true;
+    }
+
+    bool ShrekRuntime::stash_del(ShrekValue key)
+    {
+        if (m_stash_table.count(key) > 0)
+        {
+            m_stash_table.erase(key);
+            return true;
+        }
+
+        return false;
     }
 
     int ShrekRuntime::main_loop()
@@ -156,7 +224,7 @@ namespace shrek
         int exit_code = 0;
         if (!m_stack.empty())
         {
-            exit_code = m_stack.top();
+            exit_code = (int)m_stack.top();
         }
 
         return exit_code;
@@ -222,26 +290,35 @@ namespace shrek
         auto func_num = m_stack.top();
         m_stack.pop();
 
-        auto it = m_func_table.find(func_num);
-        if (it != m_func_table.end())
+        if (func_num < builtin_reserved_num)
         {
-            m_func_exception.clear();
-
-            int rc = it->second(m_owning_handle);
-            if (rc != SHREK_OK)
-            {
-                if (m_func_exception.empty())
-                {
-                    m_func_exception = "registered function did not set exception text";
-                }
-
-                throw RuntimeError(fmt::format("Error running function {}: {}", func_num, m_func_exception));
-            }
+            exec_builtin(*this, func_num);
         }
         else
         {
-            throw RuntimeError(fmt::format("Function number {} not registered", func_num));
+            // Use an extension function registered in the function table.
+            auto it = m_func_table.find(func_num);
+            if (it != m_func_table.end())
+            {
+                m_func_exception.clear();
+
+                int rc = it->second(m_owning_handle);
+                if (rc != SHREK_OK)
+                {
+                    if (m_func_exception.empty())
+                    {
+                        m_func_exception = "registered function did not set exception text";
+                    }
+
+                    throw RuntimeError(fmt::format("Error running function {}: {}", func_num, m_func_exception));
+                }
+            }
+            else
+            {
+                throw RuntimeError(fmt::format("Function number {} not registered", func_num));
+            }
         }
+
 
         step_program();
     }

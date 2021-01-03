@@ -26,9 +26,10 @@ namespace shrek
         std::vector<std::size_t> m_jump_table;
         std::size_t m_program_counter = 0;
         RuntimeHooks* m_hooks = nullptr;
-        std::stack<int> m_stack;
-        std::unordered_map<int, ShrekFunc> m_func_table;
+        std::stack<ShrekValue> m_stack;
+        std::unordered_map<ShrekValue, ShrekFunc> m_func_table;
         std::string m_func_exception;
+        std::unordered_map<ShrekValue, ShrekValue> m_stash_table;
 
         // Handle for C API calls.
         ShrekHandle* m_owning_handle;
@@ -48,17 +49,29 @@ namespace shrek
     public:
         ShrekRuntime(ShrekHandle* owning_handle);
 
-        inline std::stack<int>& stack() { return m_stack; }
-
         int run(int argc, const char** argv);
 
         void set_hooks(RuntimeHooks* hooks);
 
         const ExpandedByteCode& curr_code() const;
 
-        bool register_function(int func_number, ShrekFunc func);
+        bool register_function(ShrekValue func_number, ShrekFunc func);
 
         void set_func_exception(const std::string& value);
+
+        void stack_push(ShrekValue value);
+
+        ShrekValue stack_pop();
+
+        ShrekValue stack_peek();
+
+        ShrekValue stack_size();
+
+        void stash_add(ShrekValue key, ShrekValue value);
+
+        bool stash_get(ShrekValue key, ShrekValue& out_value);
+
+        bool stash_del(ShrekValue key);
     };
 }
 

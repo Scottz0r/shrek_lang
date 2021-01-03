@@ -18,18 +18,48 @@ namespace shrek
         double_val,
         negate,
         square,
-        clone
+        clone,
+        stash_add,
+        stash_get,
+        stash_delete
     };
 
     constexpr auto builtin_max_num = (int)BuiltinFuncs::clone;
 
-    // void register_builtins(ShrekRuntime& shrek);
-}
+    constexpr auto builtin_reserved_num = 255;
 
-// TODO: Probably doesn't need to be a C-API.
-extern "C"
-{
-    shrek_API_FUNC(int) shrek_builtins_register(ShrekHandle* handle);
+    int exec_builtin(ShrekRuntime& shrek, ShrekValue func_num);
+
+    namespace builtins
+    {
+        int input(ShrekRuntime& shrek);
+
+        int output(ShrekRuntime& shrek);
+
+        int add(ShrekRuntime& shrek);
+
+        int subtract(ShrekRuntime& shrek);
+
+        int multiply(ShrekRuntime& shrek);
+
+        int divide(ShrekRuntime& shrek);
+
+        int mod(ShrekRuntime& shrek);
+
+        int double_val(ShrekRuntime& shrek);
+
+        int negate(ShrekRuntime& shrek);
+
+        int square(ShrekRuntime& shrek);
+
+        int clone(ShrekRuntime& shrek);
+
+        int stash_add(ShrekRuntime& shrek);
+
+        int stash_get(ShrekRuntime& shrek);
+
+        int stash_delete(ShrekRuntime& shrek);
+    }
 }
 
 #endif // !_SHREK_BUILTINS_H_INCLUDE_GUARD

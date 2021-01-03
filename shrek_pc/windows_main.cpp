@@ -41,12 +41,6 @@ int wmain(int argc, const wchar_t** argv)
         return -1;
     }
 
-    if (shrek_builtins_register(shrek) != SHREK_OK)
-    {
-        std::cout << "Failed to register built in functions" << std::endl;
-        shrek_free_runtime(shrek);
-    }
-
     int rc = shrek_run(shrek, argc, utf8_argv.get());
     shrek_free_runtime(shrek);
     return rc;

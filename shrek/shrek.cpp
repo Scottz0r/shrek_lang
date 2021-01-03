@@ -39,7 +39,7 @@ shrek_API_FUNC(int) shrek_run(ShrekHandle* shrek, int argc, const char** argv)
     return rt->run(argc, argv);
 }
 
-shrek_API_FUNC(int) shrek_register_func(ShrekHandle* shrek, int func_number, ShrekFunc func)
+shrek_API_FUNC(int) shrek_register_func(ShrekHandle* shrek, ShrekValue func_number, ShrekFunc func)
 {
     if (!shrek)
     {
@@ -62,12 +62,18 @@ shrek_API_FUNC(void) shrek_set_except(ShrekHandle* shrek, const char* errmsg)
         return;
     }
 
-    auto rt = (shrek::ShrekRuntime*)shrek->runtime;
-
-    // TODO: Implement this.
+    try
+    {
+        auto rt = (shrek::ShrekRuntime*)shrek->runtime;
+        rt->set_func_exception(errmsg);
+    }
+    catch (...)
+    {
+        // TODO?
+    }
 }
 
-shrek_API_FUNC(int) shrek_stack_size(ShrekHandle* shrek)
+shrek_API_FUNC(ShrekValue) shrek_stack_size(ShrekHandle* shrek)
 {
     if (!shrek)
     {
@@ -76,10 +82,17 @@ shrek_API_FUNC(int) shrek_stack_size(ShrekHandle* shrek)
 
     auto rt = (shrek::ShrekRuntime*)shrek->runtime;
 
-    return (int)rt->stack().size();
+    try
+    {
+        return (ShrekValue)rt->stack_size();
+    }
+    catch (...)
+    {
+        return 0;
+    }
 }
 
-shrek_API_FUNC(int) shrek_pop(ShrekHandle* shrek, int* out_value)
+shrek_API_FUNC(int) shrek_pop(ShrekHandle* shrek, ShrekValue* out_value)
 {
     if (shrek_peek(shrek, out_value) != SHREK_OK)
     {
@@ -87,12 +100,38 @@ shrek_API_FUNC(int) shrek_pop(ShrekHandle* shrek, int* out_value)
     }
 
     auto rt = (shrek::ShrekRuntime*)shrek->runtime;
-    rt->stack().pop();
 
-    return SHREK_OK;
+    try
+    {
+       *out_value = rt->stack_pop();
+       return SHREK_OK;
+    }
+    catch (...)
+    {
+        return SHREK_ERROR;
+    }
 }
 
-shrek_API_FUNC(int) shrek_push(ShrekHandle* shrek, int value)
+shrek_API_FUNC(int) shrek_push(ShrekHandle* shrek, ShrekValue value)
+{
+    if (!shrek)
+    {
+        return SHREK_ERROR;
+    }
+
+    try
+    {
+        auto rt = (shrek::ShrekRuntime*)shrek->runtime;
+        rt->stack_push(value);
+        return SHREK_OK;
+    }
+    catch (...)
+    {
+        return SHREK_ERROR;
+    }
+}
+
+shrek_API_FUNC(int) shrek_peek(ShrekHandle* shrek, ShrekValue* out_value)
 {
     if (!shrek)
     {
@@ -100,28 +139,22 @@ shrek_API_FUNC(int) shrek_push(ShrekHandle* shrek, int value)
     }
 
     auto rt = (shrek::ShrekRuntime*)shrek->runtime;
-    rt->stack().push(value);
-    return SHREK_OK;
-}
 
-shrek_API_FUNC(int) shrek_peek(ShrekHandle* shrek, int* out_value)
-{
-    if (!shrek)
+    try
+    {
+        if (rt->stack_size() == 0)
+        {
+            out_value = 0;
+            return SHREK_ERROR;
+        }
+
+        *out_value = rt->stack_peek();
+        return SHREK_OK;
+    }
+    catch (...)
     {
         return SHREK_ERROR;
     }
-
-    auto rt = (shrek::ShrekRuntime*)shrek->runtime;
-
-    if (rt->stack().empty())
-    {
-        out_value = 0;
-        return SHREK_ERROR;
-    }
-
-    *out_value = rt->stack().top();
-
-    return SHREK_OK;
 }
 
 #ifdef __cplusplus
